@@ -5,35 +5,14 @@ Email   : mickaelmartial22@gmail.com
 Date Started : 12 AOUT 2021
 Date Modified :
 Description : Send Directory Service Commands to AD Bot
-Source Code Website : www.github.com/vfxpipeline
-Copyright (c) 2018, HQVFX(www.hqvfx.com) . All rights reserved.
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of HQVFX(www.hqvfx.com) nor the names of any
-      other contributors to this software may be used to endorse or
-      promote products derived from this software without specific prior written permission.
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 """
 
 
 import rpyc
 import datetime
+import csv
+
 
 AD_SERVER_IP = '192.168.1.10'
 AD_BOT_PORT = 19961
@@ -52,16 +31,60 @@ def send_command(command):
         print('Error in send command', str(Err))
 
 
+def create_users():
+    """
+    Create New user in AD
+    :return:
+    """
+    with open('sample.csv', mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        for row in csv_reader:
+            username = row['username']
+            employee_id = row['employee_id']
+            display_name = row['display_name']
+            print(username, employee_id, display_name)
+
+            description = "Users added by AD BOT on  {}".format(datetime.datetime.now())
+            default_password = 'P@ssw0rd'
+
+            dn = '"CN={},{}"'.format(username, users_ou)
+            groups = '"cn=siege,{}" ' \
+             '"cn=USB_Deny,{}" '.format(groups_ou,
+                                        groups_ou)
+            command = 'dsadd user ' \
+              '{} ' \
+              '-samid "{}" ' \
+              '-upn "{}" ' \
+              '-display "{}" ' \
+              '-empid "{}" ' \
+              '-desc "{}" ' \
+              '-pwd {} ' \
+              '-pwdneverexpires yes ' \
+              '-mustchpwd yes ' \
+              '-memberof {} ' \
+              '-acctexpires never ' \
+              ''.format(
+                dn,
+                username,
+                username,
+                display_name,
+                employee_id,
+                description,
+                default_password,
+                groups,
+                )
+            send_command(command)
+
+
 def create_user(username, employee_id, display_name):
     """
     Create New user in AD
     :param username:
     :param employee_id:
     :param display_name:
-    :param active:
     :return:
     """
-   
+        
     description = "User added by AD BOT on  {}".format(datetime.datetime.now())
     default_password = 'P@ssw0rd'
 
@@ -92,6 +115,7 @@ def create_user(username, employee_id, display_name):
                 groups,
                 )
     send_command(command)
+    print("création de l'utilisateur {}".format(username))
 
 
 def manage_user(username, mode):
@@ -110,7 +134,30 @@ def manage_user(username, mode):
     elif mode == 'delete':
         cmd = 'dsrm -noprompt "cn={},{}"'.format(username, users_ou)
     send_command(cmd)
+    
 
+
+def manage_users(mode):
+    """
+    This function can manage active directory users
+    :param mode:
+    :return:
+    """
+    with open('sample.csv', mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        for row in csv_reader:
+            username = row['username']
+            
+            dn = 'CN={},{}'.format(username, users_ou)
+            cmd = ''
+            if mode == 'disable':
+                cmd = 'dsmod user {} -disabled yes'.format(dn)
+            elif mode == 'enable':
+                cmd = 'dsmod user {} -disabled no'.format(dn)
+            elif mode == 'delete':
+                cmd = 'dsrm -noprompt "cn={},{}"'.format(username, users_ou)
+            send_command(cmd)
+    print('suppression de tous les comptes utilisateurs')
 
 def user_password_change(username, new_password):
     """
